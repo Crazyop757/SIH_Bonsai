@@ -160,19 +160,21 @@ class FRADataExporter:
             
             # Convert to numpy arrays
             n_samples = len(split_data)
-            n_freq = len(split_data[0]['frequencies'])
-            
-            X_magnitude = np.zeros((n_samples, n_freq))
-            X_phase = np.zeros((n_samples, n_freq))
+            n_freq = 250  # Downsampled length
+
+            X_magnitude = np.zeros((n_samples, n_freq), dtype='float16')
+            X_phase = np.zeros((n_samples, n_freq), dtype='float16')
             y_fault_type = np.zeros(n_samples, dtype=np.int32)
             y_severity = np.zeros(n_samples)
             frequencies = np.array(split_data[0]['frequencies'])
             
             for i, sample in enumerate(split_data):
-                X_magnitude[i] = sample['magnitude_db']
-                X_phase[i] = sample['phase_degrees']
+                X_magnitude[i] = sample['magnitude_db'].astype('float16')
+                X_phase[i] = sample['phase_degrees'].astype('float16')
                 y_fault_type[i] = sample['fault_type']
                 y_severity[i] = sample['fault_severity']
+
+
             
             # Save split
             output_path = self.output_dir / f"{split_name}_data.npz"

@@ -262,17 +262,40 @@ class FRAPipeline:
         export_dir = os.path.join(os.getcwd(), "exports")
         os.makedirs(export_dir, exist_ok=True)
 
-        # Helper to flatten sample for CSV
+        # Helper to extract features for CSV (statistical summaries instead of full arrays)
         def flatten_sample(sample):
+            mag = sample['magnitude_db']
+            phase = sample['phase_degrees']
+            freq = sample['frequencies']
+            
             return {
                 'transformer_id': sample['transformer_id'],
                 'fault_type': sample['fault_type'],
                 'fault_severity': sample['fault_severity'],
                 'voltage_level': sample['transformer_specs']['voltage_level'],
                 'power_rating': sample['transformer_specs']['power_rating'],
-                'frequencies': ','.join(map(str, sample['frequencies'])),
-                'magnitude_db': ','.join(map(str, sample['magnitude_db'])),
-                'phase_degrees': ','.join(map(str, sample['phase_degrees'])),
+                # Frequency range features
+                'freq_min_hz': float(freq.min()),
+                'freq_max_hz': float(freq.max()),
+                # Magnitude statistical features
+                'mag_mean_db': float(mag.mean()),
+                'mag_std_db': float(mag.std()),
+                'mag_min_db': float(mag.min()),
+                'mag_max_db': float(mag.max()),
+                'mag_range_db': float(mag.max() - mag.min()),
+                # Phase statistical features
+                'phase_mean_deg': float(phase.mean()),
+                'phase_std_deg': float(phase.std()),
+                'phase_min_deg': float(phase.min()),
+                'phase_max_deg': float(phase.max()),
+                'phase_range_deg': float(phase.max() - phase.min()),
+                # Frequency band features (low, mid, high frequency characteristics)
+                'mag_low_freq_mean': float(mag[:83].mean()),   # First 1/3 of frequency range
+                'mag_mid_freq_mean': float(mag[83:167].mean()), # Middle 1/3
+                'mag_high_freq_mean': float(mag[167:].mean()),  # Last 1/3
+                'phase_low_freq_mean': float(phase[:83].mean()),
+                'phase_mid_freq_mean': float(phase[83:167].mean()),
+                'phase_high_freq_mean': float(phase[167:].mean()),
             }
 
         # CSV Export

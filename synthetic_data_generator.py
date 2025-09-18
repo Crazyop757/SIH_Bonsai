@@ -1,3 +1,16 @@
+def downsample_signal(signal: np.ndarray, target_length: int) -> np.ndarray:
+    """
+    Downsample a 1D signal by averaging into target_length bins.
+    Args:
+        signal: 1D numpy array of length N.
+        target_length: Desired output length M (must divide N evenly).
+    Returns:
+        Downsampled signal of length M.
+    """
+    N = signal.shape[0]
+    assert N % target_length == 0, "Original length must be divisible by target_length"
+    bin_size = N // target_length
+    return signal.reshape(target_length, bin_size).mean(axis=1)
 # File 3: synthetic_data_generator.py
 
 
@@ -127,21 +140,23 @@ class SyntheticFRADataGenerator:
         magnitude_noisy, phase_noisy = circuit_model.add_measurement_noise(
             magnitude_db, phase_degrees, noise_level
         )
-        
         # Add temperature effects (simplified model)
         temp_factor = 1 + (transformer_spec['operating_temperature'] / 100) * 0.02
         magnitude_noisy *= temp_factor
-        
         # Add aging effects (simplified model)
         aging_factor = 1 + (transformer_spec['age_years'] / 40) * 0.05
         phase_noisy *= aging_factor
-        
+        # Downsample to DS_LEN
+        DS_LEN = 250
+        frequencies_ds = downsample_signal(frequencies, DS_LEN).astype('float32')
+        magnitude_ds = downsample_signal(magnitude_noisy, DS_LEN).astype('float16')
+        phase_ds = downsample_signal(phase_noisy, DS_LEN).astype('float16')
         # Compile sample data
         sample = {
             'transformer_id': transformer_spec['id'],
-            'frequencies': frequencies,
-            'magnitude_db': magnitude_noisy,
-            'phase_degrees': phase_noisy,
+            'frequencies': frequencies_ds,
+            'magnitude_db': magnitude_ds,
+            'phase_degrees': phase_ds,
             'fault_type': fault_type.value,
             'fault_severity': severity,
             'affected_sections': affected_sections,
@@ -149,7 +164,6 @@ class SyntheticFRADataGenerator:
             'noise_level': noise_level,
             'circuit_parameters': faulty_params
         }
-        
         return sample
     
     def generate_dataset(self, n_samples: int = 10000, 

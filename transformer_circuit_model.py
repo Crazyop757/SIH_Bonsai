@@ -101,10 +101,11 @@ class TransformerCircuitModel:
             z_total[i] = 1 / (1/z_section + 1/z_core)
         
         # Convert to magnitude and phase
-        magnitude_db = 20 * np.log10(np.abs(z_total))
+        magnitude_db = 20 * np.log10(np.abs(z_total)).astype('float16')
         phase_degrees = np.angle(z_total) * 180 / np.pi
-        
-        return frequencies, magnitude_db, phase_degrees
+        phase_degrees = phase_degrees.astype('float16')
+        # Keep frequencies as float32 for stability
+        return frequencies.astype('float32'), magnitude_db, phase_degrees
     
     def add_measurement_noise(self, magnitude_db: np.ndarray, phase_degrees: np.ndarray, 
                             noise_level: float = 0.1) -> Tuple[np.ndarray, np.ndarray]:

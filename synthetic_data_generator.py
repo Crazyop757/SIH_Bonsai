@@ -1,6 +1,6 @@
 # File 3: synthetic_data_generator.py
 
-synthetic_data_generator_code = '''
+
 """
 Synthetic FRA Data Generator
 Main class for generating large-scale synthetic FRA datasets
@@ -16,8 +16,8 @@ from tqdm import tqdm
 import logging
 
 # Import our custom modules (assuming they're in the same directory)
-# from transformer_circuit_model import TransformerCircuitModel
-# from fault_simulation import FaultSimulator, FaultType
+from transformer_circuit_model import TransformerCircuitModel
+from fault_simulation import FaultSimulator, FaultType
 
 class SyntheticFRADataGenerator:
     """
@@ -346,6 +346,5 @@ def create_small_test_dataset():
     print(json.dumps(validation_report, indent=2))
     
     return dataset, csv_path, hdf5_path
-'''
 
 print("Created synthetic_data_generator.py")

@@ -1,7 +1,6 @@
 # Create the complete FRA synthetic data generation framework
 # File 1: transformer_circuit_model.py
 
-transformer_circuit_model_code = '''
 """
 Transformer Circuit Model for FRA Simulation
 Physics-based equivalent circuit modeling of power transformers
@@ -96,7 +95,7 @@ class TransformerCircuitModel:
                 z_section = z_parallel + z_series[j]
             
             # Add core impedance (parallel combination)
-            z_core = params['core_resistance'] * (1j * omega[i] * params['core_inductance']) / \\
+            z_core = params['core_resistance'] * (1j * omega[i] * params['core_inductance']) / \
                      (params['core_resistance'] + 1j * omega[i] * params['core_inductance'])
             
             z_total[i] = 1 / (1/z_section + 1/z_core)
@@ -152,6 +151,6 @@ class TransformerCircuitModel:
         
         plt.tight_layout()
         return fig
-'''
+
 
 print("Created transformer_circuit_model.py")

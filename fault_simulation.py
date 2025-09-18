@@ -1,6 +1,5 @@
 # File 2: fault_simulation.py
 
-fault_simulation_code = '''
 """
 Fault Simulation Module for FRA Synthetic Data Generation
 Implements various transformer fault types and their parameter modifications
@@ -245,6 +244,6 @@ class FaultSimulator:
             affected_sections = []
         
         return fault_type, severity, affected_sections
-'''
+
 
 print("Created fault_simulation.py")

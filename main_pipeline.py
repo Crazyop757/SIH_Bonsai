@@ -1,6 +1,6 @@
 # File 6: main_pipeline.py - Main execution script
 
-main_pipeline_code = '''
+
 """
 Main Pipeline for FRA Synthetic Data Generation
 Complete workflow for generating, validating, and exporting synthetic FRA data
@@ -245,51 +245,99 @@ class FRAPipeline:
     
     def export_datasets(self) -> Dict[str, str]:
         """
-        Export datasets in multiple formats
-        
+        Export datasets in multiple formats (CSV, NumPy, HDF5)
         Returns:
             Dictionary of export paths
         """
+        import os
+        import numpy as np
+        import pandas as pd
+        try:
+            import h5py
+        except ImportError:
+            h5py = None
+
         self.logger.info("Exporting datasets...")
-        
         export_paths = {}
-        
-        # Export in requested formats
-        for format_name in self.config['export_formats']:
+        export_dir = os.path.join(os.getcwd(), "exports")
+        os.makedirs(export_dir, exist_ok=True)
+
+        # Helper to flatten sample for CSV
+        def flatten_sample(sample):
+            return {
+                'transformer_id': sample['transformer_id'],
+                'fault_type': sample['fault_type'],
+                'fault_severity': sample['fault_severity'],
+                'voltage_level': sample['transformer_specs']['voltage_level'],
+                'power_rating': sample['transformer_specs']['power_rating'],
+                'frequencies': ','.join(map(str, sample['frequencies'])),
+                'magnitude_db': ','.join(map(str, sample['magnitude_db'])),
+                'phase_degrees': ','.join(map(str, sample['phase_degrees'])),
+            }
+
+        # CSV Export
+        if 'csv' in self.config['export_formats']:
             try:
-                if format_name == 'hdf5':
-                    # path = self.data_generator.export_to_hdf5(self.dataset)
-                    path = self._mock_export('hdf5')
-                elif format_name == 'csv':
-                    # path = self.data_generator.export_to_csv(self.dataset)
-                    path = self._mock_export('csv')
-                elif format_name == 'numpy':
-                    # path = self.exporter.export_for_machine_learning(self.dataset, 'numpy')
-                    path = self._mock_export('numpy')
-                
-                export_paths[format_name] = path
-                self.logger.info(f"Exported {format_name} format to {path}")
-                
+                all_samples = self.dataset['train'] + self.dataset['validation'] + self.dataset['test']
+                df = pd.DataFrame([flatten_sample(s) for s in all_samples])
+                csv_path = os.path.join(export_dir, 'synthetic_fra_dataset.csv')
+                df.to_csv(csv_path, index=False)
+                export_paths['csv'] = csv_path
+                self.logger.info(f"Exported CSV format to {csv_path}")
             except Exception as e:
-                self.logger.error(f"Failed to export {format_name} format: {str(e)}")
-        
-        # Export vendor formats for sample data
+                self.logger.error(f"Failed to export CSV format: {str(e)}")
+
+        # NumPy Export
+        if 'numpy' in self.config['export_formats']:
+            try:
+                npy_path = os.path.join(export_dir, 'synthetic_fra_dataset.npy')
+                # Save train/validation/test splits as dict
+                np.save(npy_path, self._convert_to_json_compatible(self.dataset))
+                export_paths['numpy'] = npy_path
+                self.logger.info(f"Exported NumPy format to {npy_path}")
+            except Exception as e:
+                self.logger.error(f"Failed to export NumPy format: {str(e)}")
+
+        # HDF5 Export
+        if 'hdf5' in self.config['export_formats']:
+            if h5py is None:
+                self.logger.error("h5py not installed, skipping HDF5 export.")
+            else:
+                try:
+                    hdf5_path = os.path.join(export_dir, 'synthetic_fra_dataset.hdf5')
+                    with h5py.File(hdf5_path, 'w') as f:
+                        for split in ['train', 'validation', 'test']:
+                            grp = f.create_group(split)
+                            grp.create_dataset('transformer_id', data=np.array([s['transformer_id'] for s in self.dataset[split]], dtype='S'))
+                            grp.create_dataset('fault_type', data=np.array([s['fault_type'] for s in self.dataset[split]]))
+                            grp.create_dataset('fault_severity', data=np.array([s['fault_severity'] for s in self.dataset[split]]))
+                            grp.create_dataset('voltage_level', data=np.array([s['transformer_specs']['voltage_level'] for s in self.dataset[split]]))
+                            grp.create_dataset('power_rating', data=np.array([s['transformer_specs']['power_rating'] for s in self.dataset[split]]))
+                            grp.create_dataset('frequencies', data=np.array([s['frequencies'] for s in self.dataset[split]]))
+                            grp.create_dataset('magnitude_db', data=np.array([s['magnitude_db'] for s in self.dataset[split]]))
+                            grp.create_dataset('phase_degrees', data=np.array([s['phase_degrees'] for s in self.dataset[split]]))
+                    export_paths['hdf5'] = hdf5_path
+                    self.logger.info(f"Exported HDF5 format to {hdf5_path}")
+                except Exception as e:
+                    self.logger.error(f"Failed to export HDF5 format: {str(e)}")
+
+        # Vendor format mock export (still just creates empty files)
         sample_data = self.dataset['train'][:10]  # Export first 10 samples
-        
         for vendor in self.config['vendor_formats']:
             try:
                 vendor_paths = []
                 for i, sample in enumerate(sample_data):
-                    # path = self.exporter.export_to_vendor_format(sample, vendor, f"sample_{i}")
-                    path = f"./exports/sample_{i}_{vendor}.csv"
-                    vendor_paths.append(path)
-                
+                    vendor_path = os.path.join(export_dir, f'sample_{i}_{vendor}.csv')
+                    # For now, just write a header and transformer_id
+                    with open(vendor_path, 'w') as f:
+                        f.write('transformer_id,fault_type,fault_severity,voltage_level,power_rating\n')
+                        f.write(f"{sample['transformer_id']},{sample['fault_type']},{sample['fault_severity']},{sample['transformer_specs']['voltage_level']},{sample['transformer_specs']['power_rating']}\n")
+                    vendor_paths.append(vendor_path)
                 export_paths[f'{vendor}_samples'] = vendor_paths
                 self.logger.info(f"Exported {len(vendor_paths)} samples in {vendor} format")
-                
             except Exception as e:
                 self.logger.error(f"Failed to export {vendor} format: {str(e)}")
-        
+
         return export_paths
     
     def _mock_export(self, format_name: str) -> str:
@@ -400,23 +448,43 @@ class FRAPipeline:
             # Save report
             report_path = Path(self.config['output_dir']) / 'pipeline_report.json'
             with open(report_path, 'w') as f:
-                json.dump(report, f, indent=2)
-            
+                json.dump(self._convert_to_json_compatible(report), f, indent=2)
+
             self.logger.info(f"Pipeline completed successfully. Report saved to {report_path}")
-            
+
             return {
                 'success': True,
                 'report': report,
                 'export_paths': export_paths,
                 'report_path': str(report_path)
             }
-            
+
         except Exception as e:
             self.logger.error(f"Pipeline failed: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
             }
+
+    def _convert_to_json_compatible(self, obj):
+        """
+        Recursively convert numpy types and other non-JSON-serializable types to native Python types
+        """
+        import numpy as np
+        if isinstance(obj, dict):
+            return {k: self._convert_to_json_compatible(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_to_json_compatible(v) for v in obj]
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, (np.integer, np.int32, np.int64)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float32, np.float64)):
+            return float(obj)
+        elif isinstance(obj, (np.bool_, bool)):
+            return bool(obj)
+        else:
+            return obj
 
 def main():
     """Main function for command-line execution"""
@@ -498,6 +566,6 @@ def create_custom_dataset():
     results = pipeline.run_complete_pipeline()
     
     return results
-'''
+
 
 print("Created main_pipeline.py - Main execution script")

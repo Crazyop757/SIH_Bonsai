@@ -1,6 +1,6 @@
 # File 4: physics_validation.py
 
-physics_validation_code = '''
+
 """
 Physics Validation Module
 Ensures synthetic FRA data adheres to physical constraints and causality
@@ -355,6 +355,6 @@ def validate_sample_data():
     print(f"Passed Checks: {results['summary']['passed_checks']}/{results['summary']['total_checks']}")
     
     return results
-'''
+
 
 print("Created physics_validation.py")

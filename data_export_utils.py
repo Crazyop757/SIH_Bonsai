@@ -1,6 +1,5 @@
 # File 5: data_export_utils.py
 
-data_export_utils_code = '''
 """
 Data Export Utilities
 Various export formats and data processing utilities for FRA datasets
@@ -395,7 +394,7 @@ def combine_magnitude_phase_features(magnitude_db: np.ndarray,
 
 def normalize_frequency_features(frequencies: np.ndarray, 
                                 magnitude_db: np.ndarray, 
-                                phase_degrees: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+                                phase_degrees: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Normalize features for machine learning"""
     # Log-scale frequencies for better ML performance
     log_freq = np.log10(frequencies)
@@ -433,6 +432,6 @@ def create_frequency_bands_features(frequencies: np.ndarray,
             })
     
     return features
-'''
+
 
 print("Created data_export_utils.py")

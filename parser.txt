@@ -1,0 +1,21 @@
+standard_fra = {
+    "transformer_id": "TX001",
+    "test_type": "FRA",
+    "frequency": [..],       # Hz
+    "magnitude": [..],       # dB
+    "phase": [..],           # degrees
+    "metadata": {
+        "vendor": "Omicron",
+        "date": "2025-10-02",
+        "winding": "HV-LV",
+        "operator": "EngineerA"
+    }
+}
+
+
+you run parser.py as this
+fra1 = parse_file("omicron.csv", vendor="Omicron")
+fra2 = parse_file("megger.xml", vendor="Megger")
+
+print(fra1["frequency"][:5])   # First 5 frequency points
+print(fra2["metadata"])

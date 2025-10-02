@@ -75,5 +75,5 @@ target/
 
 # folder
 venv
-exports
-fra_synthetic_data
+fra_features_summary.csv
+fra_full_traces.npz

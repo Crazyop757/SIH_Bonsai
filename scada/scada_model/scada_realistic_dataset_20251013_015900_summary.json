@@ -1,0 +1,37 @@
+{
+  "total_samples": 25000,
+  "date_range": {
+    "start": "2025-09-13 02:01:47.219788",
+    "end": "2025-10-13 01:58:55.548163"
+  },
+  "transformer_distribution": {
+    "distribution_11kv": 8400,
+    "transmission_400kv": 8315,
+    "power_132kv": 8285
+  },
+  "fault_distribution": {
+    "healthy": 16265,
+    "axial_displacement": 2536,
+    "radial_displacement": 1968,
+    "winding_deformation": 1760,
+    "core_ground": 1245,
+    "shorted_turns": 1226
+  },
+  "anomaly_rate": 0.3494,
+  "avg_criticality": 0.23559947999999997,
+  "temperature_stats": {
+    "oil_temp_top": {
+      "mean": 35.900568,
+      "std": 11.403917679942891,
+      "min": 20.0,
+      "max": 85.0
+    }
+  },
+  "gas_stats": {
+    "h2_gas_ppm": {
+      "mean": 71.435388,
+      "std": 48.056252157490526,
+      "max": 327.3
+    }
+  }
+}

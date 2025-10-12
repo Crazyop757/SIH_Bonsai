@@ -8,10 +8,28 @@ from data_pipeline import SCADARealisticGenerator, load_public_datasets
 
 # Custom Focal Loss for handling class imbalance
 class FocalLoss(tf.keras.losses.Loss):
-    def __init__(self, alpha=0.25, gamma=2.0, **kwargs):
+    def __init__(self, alpha=0.25, gamma=2.0, class_weights=None, **kwargs):
         super().__init__(**kwargs)
         self.alpha = alpha
         self.gamma = gamma
+        self.class_weights = class_weights  # Dictionary of class weights
+        
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "alpha": self.alpha,
+            "gamma": self.gamma,
+            # Convert class_weights to a serializable format if it exists
+            "class_weights": {str(k): float(v) for k, v in self.class_weights.items()} if self.class_weights else None
+        })
+        return config
+        
+    @classmethod
+    def from_config(cls, config):
+        # Convert class_weights back from strings to integers if it exists
+        if config.get("class_weights"):
+            config["class_weights"] = {int(k): float(v) for k, v in config["class_weights"].items()}
+        return cls(**config)
 
     def call(self, y_true, y_pred):
         epsilon = tf.keras.backend.epsilon()
@@ -19,6 +37,25 @@ class FocalLoss(tf.keras.losses.Loss):
         
         # Calculate cross entropy
         ce = -y_true * tf.math.log(y_pred)
+        
+        # Apply class weights if provided
+        if self.class_weights is not None:
+            # Convert class weights to tensor
+            n_classes = tf.shape(y_true)[1]
+            class_weights_tensor = tf.ones(n_classes)
+            
+            for cls_idx, weight in self.class_weights.items():
+                # Use scatter_update for TF 2.x
+                class_weights_tensor = tf.tensor_scatter_nd_update(
+                    class_weights_tensor,
+                    [[cls_idx]],
+                    [tf.cast(weight, tf.float32)]
+                )
+            
+            # Apply weights based on the true class (row-wise multiplication)
+            weighted_ce = ce * tf.expand_dims(class_weights_tensor, 0)
+        else:
+            weighted_ce = ce
         
         # Calculate p_t
         p_t = tf.where(tf.equal(y_true, 1), y_pred, 1 - y_pred)
@@ -31,11 +68,18 @@ class FocalLoss(tf.keras.losses.Loss):
         focal_weight = alpha_t * tf.pow((1 - p_t), self.gamma)
         
         # Calculate focal loss
-        focal_loss = focal_weight * ce
+        focal_loss = focal_weight * weighted_ce
         
         return tf.reduce_mean(tf.reduce_sum(focal_loss, axis=1))
 
 def build_advanced_model(input_dim, num_faults, class_weights=None):
+    """Build an advanced model with feature attention and residual connections
+    
+    Args:
+        input_dim: Dimension of input features
+        num_faults: Number of fault classes
+        class_weights: Optional dictionary of class weights for imbalanced data
+    """
     inputs = tf.keras.Input(shape=(input_dim,), name="scada_features")
     
     # Feature attention mechanism
@@ -105,15 +149,10 @@ def build_advanced_model(input_dim, num_faults, class_weights=None):
 
     model = tf.keras.Model(inputs=inputs, outputs=[anomaly_output, fault_output, severity_output, criticality_output])
     
-    # Use different optimizers and learning rate scheduling
+    # Use AdamW optimizer with a fixed learning rate instead of a scheduler
+    # This avoids conflicts and makes the model training more stable
     optimizer = tf.keras.optimizers.AdamW(
-        learning_rate=tf.keras.optimizers.schedules.CosineDecayRestarts(
-            initial_learning_rate=1e-3,
-            first_decay_steps=1000,
-            t_mul=2.0,
-            m_mul=0.9,
-            alpha=0.1
-        ),
+        learning_rate=1e-3,  # Fixed initial learning rate
         weight_decay=0.01
     )
     
@@ -121,7 +160,7 @@ def build_advanced_model(input_dim, num_faults, class_weights=None):
         optimizer=optimizer,
         loss={
             "anomaly": tf.keras.losses.BinaryCrossentropy(label_smoothing=0.1),
-            "fault_type": FocalLoss(alpha=0.25, gamma=2.0),  # Use focal loss for imbalanced classes
+            "fault_type": FocalLoss(alpha=0.25, gamma=2.0, class_weights=class_weights),  # Use focal loss with class weights
             "severity": "huber",
             "criticality": "huber"
         },
@@ -196,7 +235,24 @@ def train():
     
     model = build_advanced_model(X.shape[1], yf.shape[1], class_weights=class_weight_dict)
     
-    # Enhanced callbacks
+    # Create a custom callback to print the learning rate
+    class LRLogger(tf.keras.callbacks.Callback):
+        def on_epoch_end(self, epoch, logs=None):
+            # Safely get learning rate from optimizer
+            try:
+                lr = self.model.optimizer.learning_rate
+                if hasattr(lr, 'value'):
+                    # For LearningRateSchedule objects
+                    step = self.model.optimizer.iterations
+                    lr_value = lr(step).numpy()
+                else:
+                    # For fixed learning rates
+                    lr_value = float(lr)
+                print(f"\nLearning rate: {lr_value:.7f}")
+            except Exception as e:
+                print(f"\nCouldn't log learning rate: {e}")
+
+    # Enhanced callbacks - removed ReduceLROnPlateau since we're using a LR scheduler
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
             monitor='val_fault_type_accuracy', 
@@ -204,20 +260,20 @@ def train():
             restore_best_weights=True, 
             mode='max'
         ),
-        tf.keras.callbacks.ReduceLROnPlateau(
-            monitor='val_fault_type_accuracy',
-            factor=0.5,
-            patience=8,
-            min_lr=1e-7,
-            mode='max'
-        ),
         tf.keras.callbacks.ModelCheckpoint(
             'best_fault_model.h5',
             monitor='val_fault_type_accuracy',
             save_best_only=True,
             mode='max'
-        )
+        ),
+        # Add custom LR logger
+        LRLogger()
     ]
+    
+    # The class weights are already applied during model compilation
+    # We don't need to access model.loss_functions directly
+    # Class weights were set when creating the FocalLoss instance in build_advanced_model()
+    print("Class weights have been applied to FocalLoss during model compilation")
     
     history = model.fit(
         X,
@@ -225,11 +281,22 @@ def train():
         validation_split=0.25,
         epochs=100,  # More epochs with early stopping
         batch_size=32,  # Smaller batch size for better gradient estimates
-        class_weight={'fault_type': class_weight_dict},  # Apply class weights
+        # Removed class_weight parameter - using FocalLoss with weights instead
         callbacks=callbacks,
         verbose=1
     )
-    model.save("scada_fra_advanced_model.h5")
+    # Save model with proper handling of custom objects
+    try:
+        model.save("scada_fra_advanced_model.h5")
+        print("Successfully saved model")
+    except Exception as e:
+        print(f"Error saving model: {e}")
+        # Try saving in TensorFlow SavedModel format as an alternative
+        try:
+            model.save("scada_fra_advanced_model", save_format="tf")
+            print("Saved model in TensorFlow SavedModel format instead")
+        except Exception as e2:
+            print(f"Error saving in TF format: {e2}")
 
     # Final evaluation on holdout test set (20%) with stratified split
     from sklearn.model_selection import train_test_split
@@ -239,8 +306,14 @@ def train():
         X, ya, yf, ys, yc, yf_idx, test_size=0.2, random_state=42, stratify=yf_idx
     )
     
-    # Load best model
-    model = tf.keras.models.load_model('best_fault_model.h5', custom_objects={'FocalLoss': FocalLoss})
+    # Load best model with proper custom objects
+    try:
+        model = tf.keras.models.load_model('best_fault_model.h5', custom_objects={'FocalLoss': FocalLoss})
+        print("Successfully loaded model with FocalLoss")
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        print("Falling back to original model")
+        # If loading fails, use the original model instead of the saved one
     
     # Ensemble prediction with Test Time Augmentation (TTA)
     n_tta = 5

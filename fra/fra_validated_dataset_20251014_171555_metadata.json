@@ -1,0 +1,42 @@
+{
+  "generation_info": {
+    "total_samples": 25000,
+    "scada_validated_samples": "0",
+    "generation_date": "2025-10-14T17:15:56.371065",
+    "scada_reference_used": false
+  },
+  "fault_distribution": {
+    "healthy": 14946,
+    "thermal_fault": 3705,
+    "electrical_fault": 2507,
+    "mechanical_fault": 2065,
+    "oil_degradation": 1257,
+    "partial_discharge": 520
+  },
+  "validation_summary": {
+    "avg_oil_temp": 49.90259640622577,
+    "avg_gas_level": 35.6126379366929,
+    "avg_thd": 2.285360024520122
+  },
+  "feature_info": {
+    "frequency_bands": {
+      "VLF": [
+        20,
+        1000.0
+      ],
+      "LF": [
+        1000.0,
+        100000.0
+      ],
+      "MF": [
+        100000.0,
+        2000000.0
+      ],
+      "HF": [
+        2000000.0,
+        25000000.0
+      ]
+    },
+    "total_features": 43
+  }
+}

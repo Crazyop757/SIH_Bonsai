@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCADA Integration Guide</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { 
+            color: #1a73e8;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        h2 { 
+            color: #1a73e8;
+            margin-top: 30px; 
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .endpoint {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #1a73e8;
+            margin-bottom: 20px;
+        }
+        .schema {
+            background-color: #fff8dc;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .note {
+            background-color: #e1f5fe;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SCADA Transformer Monitoring - Web Integration Guide</h1>
+
+        <div class="note">
+            <strong>Note:</strong> This document provides comprehensive details for the web development team to 
+            integrate the SCADA Transformer Monitoring system into a web application.
+        </div>
+
+        <h2>1. API Endpoints</h2>
+        <p>The system exposes RESTful API endpoints that accept SCADA data and return predictions.</p>
+
+        <div class="endpoint">
+            <h3>Health Check</h3>
+            <p><strong>URL:</strong> <code>/health</code></p>
+            <p><strong>Method:</strong> GET</p>
+            <p><strong>Description:</strong> Check if the API is operational</p>
+            <p><strong>Response:</strong></p>
+            <pre><code>{
+    "status": "healthy",
+    "timestamp": "2025-10-13T10:30:45.123456"
+}</code></pre>
+        </div>
+
+        <div class="endpoint">
+            <h3>Single Prediction</h3>
+            <p><strong>URL:</strong> <code>/predict</code></p>
+            <p><strong>Method:</strong> POST</p>
+            <p><strong>Description:</strong> Process a single SCADA measurement or a small batch</p>
+            <p><strong>Request Body:</strong></p>
+            <p>Either a JSON object with SCADA measurements:</p>
+            <pre><code>{
+    "voltage_l1_v": 11020.5,
+    "voltage_l2_v": 10980.3,
+    "voltage_l3_v": 11005.7,
+    "current_l1_a": 423.5,
+    "current_l2_a": 426.8,
+    "current_l3_a": 425.1,
+    "frequency_hz": 50.02,
+    "power_factor": 0.92,
+    "active_power_mw": 7.8,
+    "reactive_power_mvar": 2.3,
+    "oil_temp_top_c": 65.2,
+    "oil_temp_bottom_c": 55.8,
+    "ambient_temp_c": 22.5,
+    "humidity_percent": 45,
+    "thd_voltage_percent": 2.3,
+    "thd_current_percent": 3.4,
+    "voltage_imbalance_percent": 0.5,
+    "current_imbalance_percent": 0.8,
+    "hydrogen_ppm": 15,
+    "methane_ppm": 8,
+    "transformer_age_years": 12,
+    "load_factor": 0.75,
+    "timestamp": "2025-10-13T10:30:45"
+}</code></pre>
+            <p>Or a file upload with CSV data.</p>
+            <p><strong>Response:</strong></p>
+            <pre><code>{
+    "processed_data_shape": [1, 32],
+    "timestamp": "2025-10-13T10:31:02",
+    "predictions": [
+        {
+            "anomaly_detected": true,
+            "anomaly_probability": 0.86,
+            "fault_type": "thermal_fault",
+            "fault_confidence": 0.78,
+            "fault_reliability": "high",
+            "top_fault_candidates": [
+                ["thermal_fault", 0.78],
+                ["winding_fault", 0.15],
+                ["healthy", 0.07]
+            ],
+            "severity": 0.65,
+            "severity_level": "medium",
+            "criticality": 0.72,
+            "criticality_level": "critical",
+            "timestamp": "2025-10-13T10:31:02",
+            "prediction_id": "pred_0_20251013103102"
+        }
+    ],
+    "recommendations": [
+        {
+            "prediction_id": "pred_0_20251013103102",
+            "actions": [
+                "Check cooling system functionality",
+                "Verify oil circulation and levels",
+                "Inspect cooling fans and radiators",
+                "Prepare maintenance plan"
+            ],
+            "timeframe": "Immediate (24-48 hours)",
+            "priority": "high"
+        }
+    ],
+    "summary": {
+        "n_samples": 1,
+        "anomalies_detected": 1,
+        "critical_faults": 1,
+        "low_reliability_predictions": 0
+    }
+}</code></pre>
+        </div>
+
+        <div class="endpoint">
+            <h3>Batch Prediction</h3>
+            <p><strong>URL:</strong> <code>/batch_predict</code></p>
+            <p><strong>Method:</strong> POST</p>
+            <p><strong>Description:</strong> Process multiple SCADA measurements at once</p>
+            <p><strong>Request Body:</strong></p>
+            <p>Either a JSON array of SCADA measurement objects, or a CSV file upload with multiple rows.</p>
+            <p><strong>Response:</strong></p>
+            <p>Similar to single prediction but with multiple entries in the predictions and recommendations arrays.</p>
+        </div>
+
+        <h2>2. Data Schema</h2>
+        <p>The SCADA data should include the following measurements:</p>
+
+        <table>
+            <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Units</th>
+            </tr>
+            <tr>
+                <td>voltage_l1_v</td>
+                <td>float</td>
+                <td>Phase 1 voltage</td>
+                <td>Volts</td>
+            </tr>
+            <tr>
+                <td>voltage_l2_v</td>
+                <td>float</td>
+                <td>Phase 2 voltage</td>
+                <td>Volts</td>
+            </tr>
+            <tr>
+                <td>voltage_l3_v</td>
+                <td>float</td>
+                <td>Phase 3 voltage</td>
+                <td>Volts</td>
+            </tr>
+            <tr>
+                <td>current_l1_a</td>
+                <td>float</td>
+                <td>Phase 1 current</td>
+                <td>Amperes</td>
+            </tr>
+            <tr>
+                <td>current_l2_a</td>
+                <td>float</td>
+                <td>Phase 2 current</td>
+                <td>Amperes</td>
+            </tr>
+            <tr>
+                <td>current_l3_a</td>
+                <td>float</td>
+                <td>Phase 3 current</td>
+                <td>Amperes</td>
+            </tr>
+            <tr>
+                <td>frequency_hz</td>
+                <td>float</td>
+                <td>System frequency</td>
+                <td>Hertz</td>
+            </tr>
+            <tr>
+                <td>power_factor</td>
+                <td>float</td>
+                <td>Power factor</td>
+                <td>Dimensionless (0-1)</td>
+            </tr>
+            <tr>
+                <td>active_power_mw</td>
+                <td>float</td>
+                <td>Active power</td>
+                <td>Megawatts</td>
+            </tr>
+            <tr>
+                <td>reactive_power_mvar</td>
+                <td>float</td>
+                <td>Reactive power</td>
+                <td>Megavars</td>
+            </tr>
+            <tr>
+                <td>oil_temp_top_c</td>
+                <td>float</td>
+                <td>Top oil temperature</td>
+                <td>Celsius</td>
+            </tr>
+            <tr>
+                <td>oil_temp_bottom_c</td>
+                <td>float</td>
+                <td>Bottom oil temperature</td>
+                <td>Celsius</td>
+            </tr>
+            <tr>
+                <td>ambient_temp_c</td>
+                <td>float</td>
+                <td>Ambient temperature</td>
+                <td>Celsius</td>
+            </tr>
+            <tr>
+                <td>humidity_percent</td>
+                <td>float</td>
+                <td>Ambient humidity</td>
+                <td>Percent</td>
+            </tr>
+            <tr>
+                <td>thd_voltage_percent</td>
+                <td>float</td>
+                <td>Total harmonic distortion (voltage)</td>
+                <td>Percent</td>
+            </tr>
+            <tr>
+                <td>thd_current_percent</td>
+                <td>float</td>
+                <td>Total harmonic distortion (current)</td>
+                <td>Percent</td>
+            </tr>
+            <tr>
+                <td>voltage_imbalance_percent</td>
+                <td>float</td>
+                <td>Voltage imbalance between phases</td>
+                <td>Percent</td>
+            </tr>
+            <tr>
+                <td>current_imbalance_percent</td>
+                <td>float</td>
+                <td>Current imbalance between phases</td>
+                <td>Percent</td>
+            </tr>
+            <tr>
+                <td>hydrogen_ppm</td>
+                <td>float</td>
+                <td>Hydrogen gas concentration</td>
+                <td>Parts per million</td>
+            </tr>
+            <tr>
+                <td>methane_ppm</td>
+                <td>float</td>
+                <td>Methane gas concentration</td>
+                <td>Parts per million</td>
+            </tr>
+            <tr>
+                <td>transformer_age_years</td>
+                <td>float</td>
+                <td>Age of transformer</td>
+                <td>Years</td>
+            </tr>
+            <tr>
+                <td>load_factor</td>
+                <td>float</td>
+                <td>Current load as fraction of rated capacity</td>
+                <td>Dimensionless (0-1)</td>
+            </tr>
+            <tr>
+                <td>timestamp</td>
+                <td>string</td>
+                <td>Timestamp of measurement</td>
+                <td>ISO format (YYYY-MM-DDThh:mm:ss)</td>
+            </tr>
+        </table>
+
+        <div class="note">
+            <p>Not all fields are required. The feature extractor will calculate derived features as needed.
+            Missing values will be handled gracefully.</p>
+        </div>
+
+        <h2>3. Integration Requirements</h2>
+
+        <h3>3.1 Files to Include</h3>
+        <ul>
+            <li><strong>scada_pipeline.py</strong> - Core prediction pipeline</li>
+            <li><strong>scada_api.py</strong> - REST API wrapper</li>
+            <li><strong>best_scada_model.h5</strong> - Trained model file</li>
+            <li><strong>scada_scaler.pkl</strong> - Feature scaler</li>
+            <li><strong>scada_fault_encoder.pkl</strong> - Fault type encoder</li>
+            <li><strong>features.py</strong> - Feature extraction module</li>
+        </ul>
+
+        <h3>3.2 Dependencies</h3>
+        <pre><code>Flask==2.0.1
+tensorflow==2.9.1
+numpy==1.22.3
+pandas==1.4.2
+scikit-learn==1.0.2
+joblib==1.1.0</code></pre>
+
+        <h3>3.3 Docker Deployment</h3>
+        <p>For containerized deployment, use the following Dockerfile:</p>
+        <pre><code>FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY *.py /app/
+COPY *.h5 /app/
+COPY *.pkl /app/
+
+EXPOSE 5000
+
+CMD ["python", "scada_api.py"]</code></pre>
+
+        <h2>4. Frontend Integration Guidelines</h2>
+
+        <h3>4.1 Dashboard Components</h3>
+        <p>The web interface should include:</p>
+        <ul>
+            <li><strong>Real-time monitoring dashboard</strong> with status indicators</li>
+            <li><strong>Data upload interface</strong> for CSV files</li>
+            <li><strong>Manual entry form</strong> for individual measurements</li>
+            <li><strong>Results display</strong> with fault visualization</li>
+            <li><strong>Recommendations panel</strong> with action items</li>
+            <li><strong>Historical data browser</strong> with trend analysis</li>
+        </ul>
+
+        <h3>4.2 API Integration Example</h3>
+        <pre><code>// Example JavaScript for API integration
+async function predictFault(scadaData) {
+    const response = await fetch('/api/predict', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(scadaData)
+    });
+    
+    const result = await response.json();
+    return result;
+}
+
+// Example usage
+const scadaReading = {
+    voltage_l1_v: 11020.5,
+    current_l1_a: 423.5,
+    // other measurements...
+    timestamp: new Date().toISOString()
+};
+
+// Make prediction
+const faultPrediction = await predictFault(scadaReading);
+
+// Update UI with results
+updateDashboard(faultPrediction);</code></pre>
+
+        <h2>5. Security Considerations</h2>
+        <ul>
+            <li>Implement API authentication (OAuth2 or API keys)</li>
+            <li>Use HTTPS for all API communications</li>
+            <li>Validate all input data</li>
+            <li>Implement rate limiting to prevent abuse</li>
+            <li>Log all prediction requests for audit purposes</li>
+        </ul>
+
+        <h2>6. Contact Information</h2>
+        <p>For technical questions regarding model integration, contact:</p>
+        <ul>
+            <li><strong>Technical Lead:</strong> Rudra Kushwah</li>
+            <li><strong>ML Engineer:</strong> Bonsai Team</li>
+        </ul>
+    </div>
+</body>
+</html>
